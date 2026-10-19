@@ -433,3 +433,42 @@ test("sucesso do widget registra somente o item e atualiza as conexões", async 
     page.getByText("Autorização registrada pelo servidor.", { exact: true }),
   ).toBeVisible();
 });
+test("falha do consentimento mostra código do provedor sem expor mensagem pessoal", async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route("**/api/bank/status", (route) =>
+    route.fulfill({ json: { configured: true, allowed: true, missing: [] } }),
+  );
+  await page.route("**/api/bank/connect-token", (route) =>
+    route.fulfill({
+      json: { connectToken: "test-widget-token", connectorIds: [1] },
+    }),
+  );
+  await page.route(
+    "**/node_modules/.vite/deps/pluggy-connect-sdk.js*",
+    (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body: `export class PluggyConnect { constructor(options){this.options=options;} init(container){const button=document.createElement('button');button.textContent='Simular autorização recusada';button.onclick=()=>this.options.onError({message:'private-message-test',data:{item:{error:{code:'USER_AUTHORIZATION_NOT_GRANTED',providerMessage:'private-cpf-test'}}}});container.append(button);return Promise.resolve();} destroy(){} }`,
+      }),
+  );
+  await page.goto("/");
+  await page
+    .locator("nav")
+    .getByRole("button", { name: "Contas e saldos", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Conectar banco", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Simular autorização recusada" })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "USER_AUTHORIZATION_NOT_GRANTED",
+  );
+  await expect(page.getByRole("alert")).not.toContainText(
+    "private-message-test",
+  );
+  await expect(page.getByRole("alert")).not.toContainText("private-cpf-test");
+});

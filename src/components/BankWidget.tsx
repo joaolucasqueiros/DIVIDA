@@ -8,7 +8,7 @@ type Props = {
   };
   onSuccess: (itemId: string) => void;
   onClose: () => void;
-  onError: () => void;
+  onError: (error: unknown) => void;
 };
 /** Explicit lifecycle also handles React StrictMode's mount/cleanup rehearsal. */
 export default function BankWidget(props: Props) {
@@ -35,14 +35,15 @@ export default function BankWidget(props: Props) {
           onClose: () => {
             if (!cancelled) callbacks.current.onClose();
           },
-          onError: () => {
-            if (!cancelled) callbacks.current.onError();
+          onError: (error) => {
+            if (!cancelled) callbacks.current.onError(error);
           },
         });
         return instance.init(container.current);
       })
       .catch(() => {
-        if (!cancelled) callbacks.current.onError();
+        if (!cancelled)
+          callbacks.current.onError({ code: "WIDGET_LOAD_FAILED" });
       });
     return () => {
       cancelled = true;

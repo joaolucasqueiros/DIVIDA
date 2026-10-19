@@ -1,3 +1,4 @@
+import { bankErrorMessage } from "../../shared/bank-errors";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Building2, Link2, RefreshCw, ShieldCheck, Unplug } from "lucide-react";
 import { api } from "../api";
@@ -285,11 +286,9 @@ export function BankConnection({
               });
             }}
             onClose={() => setToken(null)}
-            onError={() => {
+            onError={(error) => {
               setToken(null);
-              setError(
-                "A autorização não foi concluída. Tente novamente pelo botão Conectar banco.",
-              );
+              setError(bankErrorMessage(error));
             }}
           />
         </Suspense>
