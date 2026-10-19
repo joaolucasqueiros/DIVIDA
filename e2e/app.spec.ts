@@ -25,7 +25,7 @@ test("login exige e-mail e não apresenta finanças fictícias", async ({
   ).toBeVisible();
   await expect(page.getByText("Saldo bancário sincronizado")).toHaveCount(0);
 });
-async function authenticated(page: any) {
+async function authenticated(page: any, fixtures: Record<string, any[]> = {}) {
   await page.addInitScript(() => {
     localStorage.setItem(
       "sb-localhost-auth-token",
@@ -51,7 +51,7 @@ async function authenticated(page: any) {
   );
   await page.route("**/api/data/**", async (route: any) => {
     const table = new URL(route.request().url()).pathname.split("/").pop();
-    const rows = table === "savings_goals" ? [goal] : [];
+    const rows = fixtures[table!] ?? (table === "savings_goals" ? [goal] : []);
     await route.fulfill({ json: { rows, total: rows.length } });
   });
 }
@@ -106,4 +106,70 @@ test("menu móvel acessível e formulário de dívida", async ({ page }) => {
   await expect(page.getByLabel("Nome da dívida")).toBeVisible();
   await expect(page.getByLabel("Vencimento", { exact: true })).toBeVisible();
   await page.screenshot({ path: "/tmp/clareza-mobile.png", fullPage: true });
+});
+
+test("arco compara saldo e dívida líquida sem somar origens", async ({
+  page,
+}) => {
+  const debt = {
+    id: "10000000-0000-4000-8000-000000000001",
+    name: "Dívida teste",
+    amount: 100000,
+    fees: 10000,
+    paid: 30000,
+    due_date: "2026-12-01",
+    status: "active",
+    created_at: "2026-10-18T12:00:00Z",
+  };
+  await authenticated(page, {
+    debts: [debt],
+    bank_accounts: [
+      { id: "a", name: "Banco", source: "pluggy", balance: 120000 },
+      { id: "b", name: "Manual", source: "manual", balance: 40000 },
+    ],
+  });
+  await page.goto("/");
+  const panel = page.getByRole("region", {
+    name: "Equilíbrio entre saldo e dívidas",
+  });
+  await expect(panel.getByRole("img")).toHaveAttribute(
+    "aria-label",
+    /150% de cobertura/,
+  );
+  await expect(panel).toContainText("R$ 800,00");
+  await panel.getByLabel("Origem do saldo no arco").selectOption("manual");
+  await expect(panel.getByRole("img")).toHaveAttribute(
+    "aria-label",
+    /50% de cobertura/,
+  );
+  await expect(panel).toContainText("Falta para cobrir as dívidas");
+  debt.paid = 70000;
+  await page.getByRole("button", { name: "Atualizar", exact: true }).click();
+  await expect(panel.getByRole("img")).toHaveAttribute(
+    "aria-label",
+    /100% de cobertura/,
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(panel).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await panel.screenshot({ path: "/tmp/clareza-balance-arc.png" });
+});
+test("arco distingue ausência de saldo de equilíbrio financeiro", async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.goto("/");
+  const panel = page.getByRole("region", {
+    name: "Equilíbrio entre saldo e dívidas",
+  });
+  await expect(panel).toContainText("Informe seu saldo");
+  await expect(panel).toContainText("Não informado");
+  await expect(panel.getByRole("img")).toHaveAttribute(
+    "aria-label",
+    /Cadastre um saldo/,
+  );
 });

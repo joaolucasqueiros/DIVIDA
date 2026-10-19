@@ -1,3 +1,4 @@
+import { BalanceArc } from "./components/BalanceArc";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
@@ -1282,6 +1283,11 @@ function App() {
                       tone="green"
                     />
                   </div>
+                  <BalanceArc
+                    accounts={accounts as { source: string; balance: number }[]}
+                    debt={totalDebt}
+                    unavailable={!!error || loading}
+                  />
                   <div className="two-col">
                     <Section
                       title="Seu dinheiro em movimento"

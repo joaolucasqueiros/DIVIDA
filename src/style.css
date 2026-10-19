@@ -1298,3 +1298,123 @@ pre {
     display: none;
   }
 }
+.balance-panel .section-title {
+  align-items: flex-start;
+}
+.balance-panel .section-title .muted {
+  margin: 8px 0 0;
+}
+.balance-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 1.4fr);
+  align-items: center;
+  gap: 40px;
+}
+.balance-gauge {
+  max-width: 360px;
+  width: 100%;
+  margin: auto;
+}
+.balance-gauge svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+.balance-percent {
+  font-size: 38px;
+  font-weight: 600;
+  fill: var(--text);
+  letter-spacing: -1px;
+}
+.balance-caption {
+  font-size: 11px;
+  fill: var(--muted);
+}
+.balance-arc {
+  transition: stroke-dasharray 0.7s ease;
+}
+.balance-endpoints {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+}
+.balance-source {
+  font-size: 10px;
+  min-width: 175px;
+}
+.balance-source select {
+  font-size: 11px;
+}
+.balance-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.balance-values span,
+.balance-result span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+.balance-values strong {
+  display: block;
+  font-size: 22px;
+  letter-spacing: -0.6px;
+  margin-top: 9px;
+}
+.balance-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+}
+.balance-dot.cash {
+  background: var(--green);
+}
+.balance-dot.debt {
+  background: #bb8752;
+}
+.balance-result {
+  border-top: 1px solid var(--border);
+  padding-top: 15px;
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+.balance-result strong {
+  font-size: 23px;
+  color: var(--green);
+}
+.balance-result.shortfall strong {
+  color: #bb7447;
+}
+.balance-details > .muted {
+  font-size: 10px;
+  line-height: 1.7;
+  margin: 14px 0 0;
+}
+@media (max-width: 700px) {
+  .balance-layout {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .balance-panel .section-title {
+    flex-wrap: wrap;
+  }
+  .balance-source {
+    width: 100%;
+  }
+  .balance-gauge {
+    max-width: 300px;
+  }
+  .balance-values strong {
+    font-size: 20px;
+  }
+  .balance-result strong {
+    font-size: 21px;
+  }
+}
