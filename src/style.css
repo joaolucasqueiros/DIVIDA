@@ -1311,7 +1311,7 @@ pre {
   gap: 40px;
 }
 .balance-gauge {
-  max-width: 360px;
+  max-width: 290px;
   width: 100%;
   margin: auto;
 }
@@ -1333,12 +1333,7 @@ pre {
 .balance-arc {
   transition: stroke-dasharray 0.7s ease;
 }
-.balance-endpoints {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10px;
-  color: var(--muted);
-}
+
 .balance-source {
   font-size: 10px;
   min-width: 175px;

@@ -108,7 +108,7 @@ test("menu móvel acessível e formulário de dívida", async ({ page }) => {
   await page.screenshot({ path: "/tmp/clareza-mobile.png", fullPage: true });
 });
 
-test("arco compara saldo e dívida líquida sem somar origens", async ({
+test("círculo compara saldo e dívida líquida sem somar origens", async ({
   page,
 }) => {
   const debt = {
@@ -137,7 +137,7 @@ test("arco compara saldo e dívida líquida sem somar origens", async ({
     /150% de cobertura/,
   );
   await expect(panel).toContainText("R$ 800,00");
-  await panel.getByLabel("Origem do saldo no arco").selectOption("manual");
+  await panel.getByLabel("Origem do saldo no círculo").selectOption("manual");
   await expect(panel.getByRole("img")).toHaveAttribute(
     "aria-label",
     /50% de cobertura/,
@@ -158,7 +158,7 @@ test("arco compara saldo e dívida líquida sem somar origens", async ({
   ).toBe(true);
   await panel.screenshot({ path: "/tmp/clareza-balance-arc.png" });
 });
-test("arco distingue ausência de saldo de equilíbrio financeiro", async ({
+test("círculo distingue ausência de saldo de equilíbrio financeiro", async ({
   page,
 }) => {
   await authenticated(page);

@@ -58,7 +58,7 @@ export function BalanceArc({
           <label className="balance-source">
             Saldo usado
             <select
-              aria-label="Origem do saldo no arco"
+              aria-label="Origem do saldo no círculo"
               value={source}
               onChange={(e) => setSelected(e.target.value)}
             >
@@ -70,17 +70,22 @@ export function BalanceArc({
       </div>
       <div className="balance-layout">
         <div className="balance-gauge">
-          <svg viewBox="0 0 320 182" role="img" aria-label={description}>
-            <path
-              d="M 28 156 A 132 132 0 0 1 292 156"
+          <svg viewBox="0 0 320 320" role="img" aria-label={description}>
+            <circle
+              cx="160"
+              cy="160"
+              r="126"
               fill="none"
               stroke={known && debt > 0 ? "#e2c6a7" : "var(--border)"}
               strokeWidth="20"
               strokeLinecap="round"
             />
-            <path
+            <circle
               className="balance-arc"
-              d="M 28 156 A 132 132 0 0 1 292 156"
+              cx="160"
+              cy="160"
+              r="126"
+              transform="rotate(-90 160 160)"
               pathLength="100"
               fill="none"
               stroke="var(--green)"
@@ -90,7 +95,7 @@ export function BalanceArc({
             />
             <text
               x="160"
-              y="112"
+              y="158"
               textAnchor="middle"
               className="balance-percent"
             >
@@ -98,17 +103,13 @@ export function BalanceArc({
             </text>
             <text
               x="160"
-              y="136"
+              y="184"
               textAnchor="middle"
               className="balance-caption"
             >
               {known ? "das dívidas cobertas" : "aguardando saldo"}
             </text>
           </svg>
-          <div className="balance-endpoints">
-            <span>0% de cobertura</span>
-            <span>100% de cobertura</span>
-          </div>
         </div>
         <div className="balance-details">
           <div className="balance-values">
@@ -143,7 +144,7 @@ export function BalanceArc({
           </p>
           {known && debt === 0 && (
             <p className="muted">
-              Sem dívidas em aberto: o arco fica completo quando há saldo
+              Sem dívidas em aberto: o círculo fica completo quando há saldo
               informado não negativo.
             </p>
           )}
