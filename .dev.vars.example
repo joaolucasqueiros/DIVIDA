@@ -1,11 +1,10 @@
 SUPABASE_URL=https://PROJECT.supabase.co
 SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_OR_ANON_KEY
-# Only needed for scheduled bank sync, exclusively in the Worker:
+# Bank connection and scheduled balance reads: server-side values only.
 SUPABASE_SERVICE_ROLE_KEY=
 OWNER_USER_ID=
 PLUGGY_CLIENT_ID=
 PLUGGY_CLIENT_SECRET=
-PLUGGY_ITEM_IDS=
 # Exact public origin, also used for Google OAuth redirect:
 APP_URL=http://localhost:5173
 GOOGLE_CLIENT_ID=

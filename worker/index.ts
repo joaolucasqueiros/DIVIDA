@@ -1,3 +1,4 @@
+import { bankRoute, syncBanks, BankError } from "./bank";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { schemas, type Table } from "../shared/schema";
@@ -10,7 +11,6 @@ interface Env {
   APP_URL: string;
   PLUGGY_CLIENT_ID?: string;
   PLUGGY_CLIENT_SECRET?: string;
-  PLUGGY_ITEM_IDS?: string;
   OWNER_USER_ID?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
@@ -80,112 +80,6 @@ async function crypt(env: Env, value: string, decrypt = false) {
     ),
   );
   return btoa(String.fromCharCode(...iv, ...cipher));
-}
-async function bankSync(env: Env, uid: string) {
-  if (uid !== env.OWNER_USER_ID)
-    throw Error(
-      "Integração disponível apenas para o proprietário configurado.",
-    );
-  if (
-    !env.PLUGGY_CLIENT_ID ||
-    !env.PLUGGY_CLIENT_SECRET ||
-    !env.PLUGGY_ITEM_IDS
-  )
-    throw Error("Pluggy não configurado. Use saldo manual enquanto isso.");
-  const db = admin(env);
-  const auth = await requestJSON("https://api.pluggy.ai/auth", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      clientId: env.PLUGGY_CLIENT_ID,
-      clientSecret: env.PLUGGY_CLIENT_SECRET,
-    }),
-  });
-  let count = 0;
-  for (const itemId of env.PLUGGY_ITEM_IDS.split(",")
-    .map((x) => x.trim())
-    .filter(Boolean)) {
-    try {
-      let page = 1;
-      for (;;) {
-        const result = await requestJSON(
-          `https://api.pluggy.ai/accounts?itemId=${encodeURIComponent(itemId)}&page=${page}&pageSize=100`,
-          { headers: { "X-API-KEY": auth.apiKey } },
-        );
-        for (const a of result.results || []) {
-          if (
-            a.currencyCode !== "BRL" ||
-            a.type !== "BANK" ||
-            typeof a.balance !== "number"
-          )
-            continue;
-          const { data, error } = await db
-            .from("bank_accounts")
-            .upsert(
-              {
-                user_id: uid,
-                provider_id: a.id,
-                name: a.name,
-                institution: "Santander / Pluggy",
-                balance: Math.round(a.balance * 100),
-                currency: "BRL",
-                source: "pluggy",
-                last_sync: new Date().toISOString(),
-              },
-              { onConflict: "user_id,provider_id" },
-            )
-            .select("id")
-            .single();
-          if (error) throw error;
-          must(
-            await db
-              .from("bank_balance_history")
-              .upsert(
-                {
-                  user_id: uid,
-                  account_id: data.id,
-                  date: today(),
-                  balance: Math.round(a.balance * 100),
-                  source: "pluggy",
-                },
-                { onConflict: "user_id,account_id,date" },
-              ),
-          );
-          count++;
-        }
-        if (page >= (result.totalPages || 1)) break;
-        page++;
-      }
-      must(
-        await db
-          .from("bank_connections")
-          .upsert(
-            {
-              user_id: uid,
-              name: "Pluggy",
-              provider_item_id: itemId,
-              last_sync: new Date().toISOString(),
-              error: null,
-            },
-            { onConflict: "user_id,provider_item_id" },
-          ),
-      );
-    } catch (e) {
-      await db
-        .from("bank_connections")
-        .upsert(
-          {
-            user_id: uid,
-            name: "Pluggy",
-            provider_item_id: itemId,
-            error: "Sincronização falhou; tente novamente.",
-          },
-          { onConflict: "user_id,provider_item_id" },
-        );
-      throw e;
-    }
-  }
-  return { accounts: count };
 }
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -305,45 +199,10 @@ export default {
         must(r);
         return json({ imported: r.data });
       }
-      if (url.pathname === "/api/bank/sync" && request.method === "POST")
-        return json(await bankSync(env, user.id));
-      if (
-        url.pathname === "/api/bank/disconnect" &&
-        request.method === "POST"
-      ) {
-        if (user.id !== env.OWNER_USER_ID)
-          return json({ error: "Acesso restrito." }, 403);
-        const p = z
-          .object({ item: z.string().min(1).max(200) })
-          .parse(await body());
-        if (
-          !env.PLUGGY_ITEM_IDS?.split(",")
-            .map((x) => x.trim())
-            .includes(p.item)
-        )
-          return json({ error: "Conexão desconhecida." }, 404);
-        const auth = await requestJSON("https://api.pluggy.ai/auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            clientId: env.PLUGGY_CLIENT_ID,
-            clientSecret: env.PLUGGY_CLIENT_SECRET,
-          }),
-        });
-        const r = await fetch(
-          `https://api.pluggy.ai/items/${encodeURIComponent(p.item)}`,
-          { method: "DELETE", headers: { "X-API-KEY": auth.apiKey } },
+      if (url.pathname.startsWith("/api/bank/"))
+        return json(
+          await bankRoute(url.pathname, request.method, body, env, user.id, db),
         );
-        if (!r.ok) throw Error("Falha ao revogar conexão.");
-        must(
-          await admin(env)
-            .from("bank_connections")
-            .delete()
-            .eq("user_id", user.id)
-            .eq("provider_item_id", p.item),
-        );
-        return json({ ok: true });
-      }
       if (
         url.pathname === "/api/calendar/connect" &&
         request.method === "POST"
@@ -514,14 +373,19 @@ export default {
                 ? e.message
                 : "Operação não concluída.",
         },
-        400,
+        e instanceof BankError ? e.status : 400,
       );
     }
   },
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    if (env.OWNER_USER_ID && env.PLUGGY_ITEM_IDS)
+    if (
+      env.OWNER_USER_ID &&
+      env.PLUGGY_CLIENT_ID &&
+      env.PLUGGY_CLIENT_SECRET &&
+      env.SUPABASE_SERVICE_ROLE_KEY
+    )
       ctx.waitUntil(
-        bankSync(env, env.OWNER_USER_ID).catch(() => {
+        syncBanks(env, env.OWNER_USER_ID).catch(() => {
           console.error("Bank synchronization failed");
         }),
       );

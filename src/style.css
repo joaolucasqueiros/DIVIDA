@@ -1540,3 +1540,64 @@ pre {
   background: #422b2b;
   border-color: #604040;
 }
+.bank-connect > .section-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bank-connect > .section-title .badge {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.bank-connect > p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.bank-connect details {
+  line-height: 1.8;
+}
+.bank-connect details a {
+  color: var(--green);
+  text-decoration: underline;
+}
+.bank-connections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+}
+.bank-connection {
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.bank-connection-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bank-connection dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+.bank-connection dt {
+  font-size: 10px;
+  color: var(--muted);
+}
+.bank-connection dd {
+  font-size: 11px;
+  margin: 5px 0 0;
+}
+.bank-connection .toolbar {
+  margin: 15px 0 0;
+}
+.bank-connection .toolbar > .small:last-child {
+  margin-left: 0;
+}
+.bank-connection .badge {
+  background: var(--panel);
+}

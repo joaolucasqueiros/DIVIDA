@@ -1,3 +1,4 @@
+import { BankConnection } from "./components/BankConnection";
 import { MoneyInput } from "./components/MoneyInput";
 import { BalanceArc } from "./components/BalanceArc";
 import React, { useEffect, useRef, useState } from "react";
@@ -255,7 +256,9 @@ function App() {
     payments = get("debt_payments"),
     tx = get("transactions"),
     work = get("daily_work_earnings"),
-    accounts = get("bank_accounts");
+    accounts = get("bank_accounts").filter(
+      (a) => a.included_in_balance !== false,
+    );
   const actual = tx.filter((r) => r.status === "realized"),
     periodTx = actual.filter(inRange),
     periodWork = work.filter(inRange),
@@ -748,7 +751,10 @@ function App() {
                                       : labels[r.status]
                             : labels[r.classification]) ||
                             labels[r.status] ||
-                            r.source ||
+                            (r.source === "pluggy" &&
+                            r.included_in_balance === false
+                              ? "Desconectada • histórico"
+                              : r.source) ||
                             ""}
                         </small>
                       </td>
@@ -1591,55 +1597,17 @@ function App() {
                     Cofre não é uma conta adicional. Saldos de origens
                     diferentes não são somados automaticamente.
                   </div>
-                  <div className="toolbar">
-                    <button
-                      className="small"
-                      disabled={busy}
-                      onClick={() => action(() => api("bank/sync", "POST"))}
-                    >
-                      <RefreshCw size={15} />
-                      Sincronizar Pluggy
-                    </button>
-                  </div>
+                  <BankConnection
+                    connections={
+                      get("bank_connections") as { id: string; name: string }[]
+                    }
+                    onChanged={load}
+                  />
                   <Rows table="bank_accounts" title="Contas e saldos" />
                   <Rows
                     table="bank_balance_history"
                     title="Histórico diário de saldo"
                   />
-                  <Section title="Conexões bancárias">
-                    {get("bank_connections").map((c) => (
-                      <div className="list-item" key={c.id}>
-                        <div>
-                          <b>{c.name}</b>
-                          <p>
-                            Última sincronização:{" "}
-                            {c.last_sync || "Ainda não realizada"} {c.error}
-                          </p>
-                        </div>
-                        <button
-                          className="small"
-                          onClick={() =>
-                            confirm(
-                              "Revogar o consentimento bancário? Remova também este item das variáveis do Worker.",
-                            ) &&
-                            action(() =>
-                              api("bank/disconnect", "POST", {
-                                item: c.provider_item_id,
-                              }),
-                            )
-                          }
-                        >
-                          Desconectar
-                        </button>
-                      </div>
-                    ))}
-                    {!get("bank_connections").length && (
-                      <p className="muted">
-                        Nenhuma conexão autorizada. A atualização manual está
-                        disponível.
-                      </p>
-                    )}
-                  </Section>
                 </>
               )}
               {page === "savings" && (
@@ -2517,12 +2485,17 @@ function App() {
                   <Section title="Evolução do saldo bancário">
                     <select
                       aria-label="Conta do histórico"
-                      value={historyAccount || accounts[0]?.id || ""}
+                      value={
+                        historyAccount || get("bank_accounts")[0]?.id || ""
+                      }
                       onChange={(e) => setHistoryAccount(e.target.value)}
                     >
-                      {accounts.map((a) => (
+                      {get("bank_accounts").map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.name} • {a.institution}
+                          {a.included_in_balance === false
+                            ? " (histórico)"
+                            : ""}
                         </option>
                       ))}
                     </select>
@@ -2531,7 +2504,7 @@ function App() {
                         .filter(
                           (r) =>
                             r.account_id ===
-                            (historyAccount || accounts[0]?.id),
+                            (historyAccount || get("bank_accounts")[0]?.id),
                         )
                         .filter(inRange)
                         .sort((a, b) => a.date.localeCompare(b.date));
@@ -2564,7 +2537,7 @@ function App() {
                         .filter(
                           (r) =>
                             r.account_id ===
-                            (historyAccount || accounts[0]?.id),
+                            (historyAccount || get("bank_accounts")[0]?.id),
                         )
                         .filter(inRange)
                         .sort((a, b) => a.date.localeCompare(b.date))

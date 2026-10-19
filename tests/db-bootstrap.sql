@@ -1,5 +1,6 @@
 -- Test-only emulation of Supabase auth/storage contracts on vanilla PostgreSQL.
 create role anon nologin;
+create role service_role nologin bypassrls;
 create role authenticated nologin;
 create schema auth;
 create table auth.users(id uuid primary key);

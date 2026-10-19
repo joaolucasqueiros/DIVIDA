@@ -58,11 +58,13 @@ Minhas dívidas aceita CSV (separador detectado), XLSX e JSON até 2 MB/1.000 li
 
 Relatórios exportam CSV e permitem salvar PDF pela impressão do navegador. Configurações exporta tabelas pessoais em JSON. Históricos são carregados em páginas de 200 registros pela API e mostrados em lotes de 20; os indicadores percorrem as páginas para evitar somas truncadas.
 
-### Pluggy / Santander PF (leitura)
+### Open Finance / Pluggy (somente leitura)
 
-Prepare uma conta Pluggy e obtenha consentimento pelo fluxo oficial Meu Pluggy/Pluggy, conforme disponibilidade comercial e do conector Santander PF. Este projeto **não coleta senha bancária** nem cria consentimento por conta própria. Não há garantia de plano gratuito nem de suporte do conector para uma conta específica.
+Em **Contas e saldos → Conectar banco**, o widget oficial Pluggy Connect permite escolher uma instituição PF do Brasil, autorizar no banco e cadastrar a conexão. Apenas Open Finance real (sem sandbox), contas `BANK` e BRL são considerados. O backend verifica o proprietário do item; tokens temporários não expõem Client Secret. Saldos desconectados saem dos totais sem apagar histórico.
 
-No Worker configure `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `PLUGGY_ITEM_IDS` (itens consentidos separados por vírgula), `OWNER_USER_ID`, `SUPABASE_SERVICE_ROLE_KEY`. `POST /api/bank/sync` exige sessão do proprietário. Cron: diariamente às 12 UTC (9h em São Paulo). Apenas contas tipo BANK em BRL são consideradas, sem crédito/cartões; histórico diário usa upsert. Remova itens revogados de `PLUGGY_ITEM_IDS` e atualize o segredo para interromper tentativas no cron. Desconectar chama DELETE no item do provedor. O módulo Receitas e despesas também importa extratos CSV/XLSX/JSON (descrição, valor positivo em reais, data, tipo income/expense e categoria). A importação é atômica e idempotente por descrição/valor/data/tipo, sem alterar saldos bancários. Operações legítimas idênticas nesses campos exigem revisão e cadastro manual.
+Para ativar, aplique a nova migração `006_bank_connect.sql` e configure `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, `SUPABASE_SERVICE_ROLE_KEY` e `OWNER_USER_ID` como descrito no **[guia bancário passo a passo](docs/bank-connection.md)**. Não é mais necessário cadastrar `PLUGGY_ITEM_IDS`. A consulta diária ocorre às 12:00 UTC (09:00 em São Paulo) sobre os dados disponíveis no provedor; a coleta bancária depende do plano/conector.
+
+A disponibilidade de Santander PF e de acesso gratuito depende do Pluggy. A aplicação não recebe senha bancária, não efetua pagamentos, não inicia transferências e não presume quitação de dívidas. Importação manual de extratos CSV/XLSX/JSON continua disponível em Receitas e despesas, sem alterar saldos bancários. As integrações reais não foram validadas com credenciais de produção.
 
 ### Google Calendar
 

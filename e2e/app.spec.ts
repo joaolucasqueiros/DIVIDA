@@ -225,3 +225,211 @@ test("valores em blocos e pagamento com formatação BRL", async ({ page }) => {
   expect((await request).postDataJSON().amount).toBe(123456);
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });
+test("conexão bancária informa configuração pendente sem solicitar senha", async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route("**/api/bank/status", (route) =>
+    route.fulfill({
+      json: {
+        configured: false,
+        allowed: true,
+        missing: ["PLUGGY_CLIENT_ID", "PLUGGY_CLIENT_SECRET"],
+        message: "Configure suas credenciais Pluggy no servidor.",
+      },
+    }),
+  );
+  await page.goto("/");
+  await page
+    .locator("nav")
+    .getByRole("button", { name: "Contas e saldos", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Conectar banco", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText("Conexão bancária ainda não ativada", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("input[type=password]")).toHaveCount(0);
+  await page.route("**/api/bank/status", (route) =>
+    route.fulfill({
+      json: {
+        configured: true,
+        allowed: true,
+        missing: [],
+        message: "Pronto para conectar.",
+      },
+    }),
+  );
+  await page.getByRole("button", { name: "Verificar configuração" }).click();
+  await expect(
+    page.getByRole("button", { name: "Conectar banco", exact: true }),
+  ).toBeEnabled();
+  await page.route("**/api/bank/connect-token", (route) =>
+    route.fulfill({
+      status: 502,
+      json: { error: "Provedor temporariamente indisponível." },
+    }),
+  );
+  const tokenRequest = page.waitForRequest((r) =>
+    r.url().endsWith("/api/bank/connect-token"),
+  );
+  await page
+    .getByRole("button", { name: "Conectar banco", exact: true })
+    .click();
+  expect((await tokenRequest).postDataJSON()).toEqual({});
+  await expect(
+    page.getByText("Provedor temporariamente indisponível."),
+  ).toBeVisible();
+});
+test("saldo de conexão revogada sai do círculo e histórico permanece consultável", async ({
+  page,
+}) => {
+  const cid = "10000000-0000-4000-8000-000000000001";
+  const connection = {
+    id: cid,
+    name: "Banco teste",
+    status: "active",
+    provider_item_id: "20000000-0000-4000-8000-000000000001",
+  };
+  const account = {
+    id: "account-test",
+    name: "Conta BRL",
+    institution: "Banco teste",
+    source: "pluggy",
+    balance: 90000,
+    included_in_balance: true,
+    created_at: "2026-10-18T15:00:00Z",
+  };
+  await authenticated(page, {
+    bank_connections: [connection],
+    bank_accounts: [account],
+  });
+  await page.route("**/api/bank/status", (route) =>
+    route.fulfill({ json: { configured: true, allowed: true, missing: [] } }),
+  );
+  await page.route("**/api/bank/disconnect", (route) => {
+    connection.status = "disconnected";
+    account.included_in_balance = false;
+    return route.fulfill({
+      json: { message: "Conexão revogada. Histórico preservado." },
+    });
+  });
+  await page.goto("/");
+  await expect(
+    page.getByRole("region", { name: "Equilíbrio entre saldo e dívidas" }),
+  ).toContainText("R$ 900,00");
+  await page
+    .locator("nav")
+    .getByRole("button", { name: "Contas e saldos", exact: true })
+    .click();
+  page.once("dialog", (dialog) => dialog.accept());
+  const request = page.waitForRequest((r) =>
+    r.url().endsWith("/api/bank/disconnect"),
+  );
+  await page.getByRole("button", { name: "Desconectar", exact: true }).click();
+  expect((await request).postDataJSON()).toEqual({ connectionId: cid });
+  await expect(page.getByText("Desconectada", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("cell").filter({ hasText: "Conta BRL" }),
+  ).toBeVisible();
+  await page
+    .locator("nav")
+    .getByRole("button", { name: "Visão geral", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "Equilíbrio entre saldo e dívidas" }),
+  ).toContainText("Não informado");
+});
+test("botão de conexão abre o widget oficial com token temporário", async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route("**/api/bank/status", (route) =>
+    route.fulfill({ json: { configured: true, allowed: true, missing: [] } }),
+  );
+  await page.route("**/api/bank/connect-token", (route) =>
+    route.fulfill({
+      json: { connectToken: "test-widget-token", connectorIds: [1] },
+    }),
+  );
+  // Only the external iframe is stubbed; the real installed React/Pluggy SDK boots.
+  await page.route("https://connect.pluggy.ai/**", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: '<!doctype html><html lang="pt-BR"><p>Autorização bancária simulada no teste</p></html>',
+    }),
+  );
+  await page.goto("/");
+  await page
+    .locator("nav")
+    .getByRole("button", { name: "Contas e saldos", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Conectar banco", exact: true }),
+  ).toBeEnabled();
+  await page
+    .getByRole("button", { name: "Conectar banco", exact: true })
+    .click();
+  await expect
+    .poll(
+      () =>
+        page
+          .frames()
+          .filter((frame) =>
+            frame.url().startsWith("https://connect.pluggy.ai"),
+          ).length,
+    )
+    .toBe(1);
+  await expect(
+    page.getByRole("heading", { name: "Conectar meu banco" }),
+  ).toBeVisible();
+});
+test("sucesso do widget registra somente o item e atualiza as conexões", async ({
+  page,
+}) => {
+  const itemId = "20000000-0000-4000-8000-000000000001";
+  await authenticated(page);
+  await page.route("**/api/bank/status", (route) =>
+    route.fulfill({ json: { configured: true, allowed: true, missing: [] } }),
+  );
+  await page.route("**/api/bank/connect-token", (route) =>
+    route.fulfill({
+      json: { connectToken: "test-widget-token", connectorIds: [1] },
+    }),
+  );
+  // This separate test stubs the SDK callback; the previous test boots the real SDK.
+  await page.route(
+    "**/node_modules/.vite/deps/pluggy-connect-sdk.js*",
+    (route) =>
+      route.fulfill({
+        contentType: "application/javascript",
+        body: `export class PluggyConnect { constructor(options){this.options=options;} init(container){const button=document.createElement('button');button.textContent='Autorizar banco de teste';button.onclick=()=>this.options.onSuccess({item:{id:'${itemId}'}});container.append(button);return Promise.resolve();} destroy(){} }`,
+      }),
+  );
+  await page.route("**/api/bank/connections", (route) =>
+    route.fulfill({
+      json: {
+        connected: true,
+        accounts: 1,
+        message: "Autorização registrada pelo servidor.",
+      },
+    }),
+  );
+  await page.goto("/");
+  await page
+    .locator("nav")
+    .getByRole("button", { name: "Contas e saldos", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Conectar banco", exact: true })
+    .click();
+  const registration = page.waitForRequest((r) =>
+    r.url().endsWith("/api/bank/connections"),
+  );
+  await page.getByRole("button", { name: "Autorizar banco de teste" }).click();
+  expect((await registration).postDataJSON()).toEqual({ itemId });
+  await expect(
+    page.getByText("Autorização registrada pelo servidor.", { exact: true }),
+  ).toBeVisible();
+});

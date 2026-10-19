@@ -18,6 +18,8 @@
     "@supabase/supabase-js": "^2.58.0",
     "lucide-react": "^0.468.0",
     "papaparse": "^5.5.3",
+    "pluggy-connect-sdk": "^2.12.0",
+    "pluggy-js": "^0.19.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "read-excel-file": "^5.8.8",
