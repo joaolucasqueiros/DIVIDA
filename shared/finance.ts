@@ -15,8 +15,21 @@ export function cents(input: string | number): number {
     .trim()
     .replace(/R\$\s?/, "")
     .replace(/\s/g, "");
-  if (normalized.includes(","))
+  if (
+    normalized.includes(",") &&
+    normalized.includes(".") &&
+    normalized.lastIndexOf(".") > normalized.lastIndexOf(",")
+  ) {
+    if (!/^-?\d{1,3}(,\d{3})+\.\d{1,2}$/.test(normalized))
+      throw Error("Valor monetário inválido.");
+    normalized = normalized.replace(/,/g, "");
+  } else if (normalized.includes(",")) {
+    if (!/^-?(?:\d+|\d{1,3}(?:\.\d{3})+),\d{1,2}$/.test(normalized))
+      throw Error("Valor monetário inválido.");
     normalized = normalized.replace(/\./g, "").replace(",", ".");
+  } else if (/^-?\d{1,3}(?:\.\d{3})+$/.test(normalized)) {
+    normalized = normalized.replace(/\./g, "");
+  }
   if (!/^-?\d+(\.\d{1,2})?$/.test(normalized))
     throw Error("Use um valor monetário válido, com até duas casas decimais.");
   const value = Math.round(Number(normalized) * 100);

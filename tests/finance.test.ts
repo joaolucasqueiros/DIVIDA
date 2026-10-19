@@ -197,3 +197,22 @@ it("agrupa turnos do mesmo dia antes de calcular lucro médio diário", () => {
     ]),
   ).toEqual({ days: 2, total: 40000, average: 20000 });
 });
+describe("entrada monetária com vírgula e ponto", () => {
+  it("aceita separadores decimais e agrupamentos sem alterar centavos", () => {
+    for (const input of [
+      "1234,56",
+      "1234.56",
+      "1.234,56",
+      "1,234.56",
+      "R$ 1.234,56",
+    ])
+      expect(cents(input)).toBe(123456);
+    expect(cents("1.000")).toBe(100000);
+    expect(cents("1.000.000")).toBe(100000000);
+    expect(cents("-1.234,56")).toBe(-123456);
+  });
+  it("recusa agrupamentos incorretos e precisão excessiva", () => {
+    for (const input of ["1.2.3", "1.23,45", "1,23.45", "12,345", "10,0001"])
+      expect(() => cents(input)).toThrow();
+  });
+});

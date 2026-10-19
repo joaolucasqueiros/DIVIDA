@@ -1413,3 +1413,130 @@ pre {
     font-size: 21px;
   }
 }
+:root {
+  --negative: #c44848;
+}
+.dark {
+  --negative: #f08e8e;
+}
+.positive {
+  color: var(--green) !important;
+}
+.negative {
+  color: var(--negative) !important;
+}
+.balance-panel {
+  padding: 20px;
+}
+.balance-panel .section-title {
+  margin-bottom: 12px;
+}
+.balance-panel .section-title .muted {
+  margin-top: 5px;
+}
+.balance-layout {
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 24px;
+}
+.balance-gauge {
+  max-width: 210px;
+}
+.balance-values {
+  gap: 10px;
+}
+.balance-values > div {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+.balance-values strong {
+  font-size: 24px;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.balance-dot.debt {
+  background: var(--negative);
+}
+.balance-details > .muted {
+  margin-top: 10px;
+  font-size: 10px;
+}
+.money-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel);
+  font-weight: 400;
+}
+.money-input > span {
+  padding-left: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.money-input input {
+  border: 0;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.money-input:focus-within {
+  outline: 2px solid #70b9a1;
+  outline-offset: 2px;
+}
+.money-input input:focus-visible {
+  outline: 0;
+}
+@media (max-width: 700px) {
+  .balance-layout {
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 10px;
+  }
+  .balance-gauge {
+    max-width: 150px;
+  }
+  .balance-values {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .balance-values > div {
+    padding: 9px 10px;
+  }
+  .balance-values span {
+    font-size: 9px;
+  }
+  .balance-values strong {
+    font-size: 17px;
+    margin-top: 5px;
+  }
+  .balance-details > .muted {
+    font-size: 9px;
+  }
+  .balance-panel {
+    padding: 14px;
+  }
+  .balance-percent {
+    font-size: 36px;
+  }
+}
+@media (max-width: 360px) {
+  .balance-layout {
+    grid-template-columns: 105px minmax(0, 1fr);
+  }
+  .balance-values strong {
+    font-size: 15px;
+  }
+}
+.stat.green.negative-stat {
+  background: #fff0ed;
+  border-color: #efd9d5;
+}
+.dark .stat.green.negative-stat {
+  background: #422b2b;
+  border-color: #604040;
+}

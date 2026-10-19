@@ -156,7 +156,10 @@ test("círculo compara saldo e dívida líquida sem somar origens", async ({
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
-  await panel.screenshot({ path: "/tmp/clareza-balance-arc.png" });
+  await panel.screenshot({
+    path: "/tmp/clareza-balance-arc.png",
+    animations: "disabled",
+  });
 });
 test("círculo distingue ausência de saldo de equilíbrio financeiro", async ({
   page,
@@ -172,4 +175,53 @@ test("círculo distingue ausência de saldo de equilíbrio financeiro", async ({
     "aria-label",
     /Cadastre um saldo/,
   );
+});
+test("valores em blocos e pagamento com formatação BRL", async ({ page }) => {
+  const debt = {
+    id: "10000000-0000-4000-8000-000000000001",
+    name: "Cartão teste",
+    amount: 200000,
+    fees: 0,
+    paid: 0,
+    due_date: "2026-12-01",
+    status: "active",
+    created_at: "2026-10-18T12:00:00Z",
+  };
+  await authenticated(page, {
+    debts: [debt],
+    bank_accounts: [{ source: "manual", balance: 40000 }],
+  });
+  await page.goto("/");
+  const panel = page.getByRole("region", {
+    name: "Equilíbrio entre saldo e dívidas",
+  });
+  await expect(panel.locator(".balance-values .negative")).toHaveCount(2);
+  await expect(panel.locator(".balance-values .positive")).toHaveCount(1);
+  await panel.screenshot({
+    path: "/tmp/clareza-compact-desktop.png",
+    animations: "disabled",
+  });
+  const gauge = await panel.locator("svg").boundingBox(),
+    blocks = await panel.locator(".balance-values").boundingBox();
+  expect(gauge!.x + gauge!.width).toBeLessThan(blocks!.x);
+  await page
+    .locator("nav")
+    .getByRole("button", { name: "Minhas dívidas", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Pagar", exact: true }).click();
+  const amount = page.getByLabel("Valor do pagamento (R$)");
+  for (const raw of ["1234.56", "1.234,56", "1,234.56"]) {
+    await amount.fill(raw);
+    await amount.blur();
+    await expect(amount).toHaveValue("1.234,56");
+  }
+  await page.route("**/api/payment", (route) =>
+    route.fulfill({ json: { id: "payment-test" } }),
+  );
+  const request = page.waitForRequest(
+    (r) => r.url().endsWith("/api/payment") && r.method() === "POST",
+  );
+  await page.getByRole("button", { name: "Confirmar pagamento" }).click();
+  expect((await request).postDataJSON().amount).toBe(123456);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });

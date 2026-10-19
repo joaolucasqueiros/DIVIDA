@@ -1,3 +1,4 @@
+import { MoneyInput } from "./components/MoneyInput";
 import { BalanceArc } from "./components/BalanceArc";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -104,6 +105,10 @@ const tables = [
 ];
 function App() {
   const actionLock = useRef(false);
+  const [paymentModal, setPaymentModal] = useState<{
+    debt: Row;
+    plan?: Row;
+  } | null>(null);
   const [collapsed, setCollapsed] = useState(false),
     [desiredSaving, setDesiredSaving] = useState("100");
   const [session, setSession] = useState<Session | null>(null),
@@ -348,14 +353,15 @@ function App() {
       setError(message(e));
     }
   }
-  async function pay(debt: Row, plan?: Row) {
-    const v = prompt(
-      "Valor do pagamento (R$)",
-      ((plan?.amount || debt.amount - debt.paid) / 100)
-        .toFixed(2)
-        .replace(".", ","),
-    );
-    if (!v) return;
+  function pay(debt: Row, plan?: Row) {
+    setPaymentModal({ debt, plan });
+    setError("");
+  }
+  async function submitPayment(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!paymentModal) return;
+    const { debt, plan } = paymentModal;
+    const v = String(new FormData(event.currentTarget).get("amount") || "");
     try {
       const amount = cents(v);
       if (amount <= 0) throw Error("Informe um valor positivo.");
@@ -373,7 +379,10 @@ function App() {
           }),
         "Pagamento registrado. Saldo bancário preservado.",
       );
-      if (saved) localStorage.removeItem(intent);
+      if (saved) {
+        localStorage.removeItem(intent);
+        setPaymentModal(null);
+      }
     } catch (e) {
       setError(message(e));
     }
@@ -554,10 +563,29 @@ function App() {
     foot?: string;
     tone?: string;
   }) {
+    let valueColor = "";
+    if (value.includes("R$")) {
+      try {
+        const amount = cents(value);
+        valueColor =
+          amount === 0
+            ? ""
+            : amount < 0 ||
+                /dívidas em aberto|vencidas|despesas|essenciais|compromissos/i.test(
+                  title,
+                )
+              ? "negative"
+              : "positive";
+      } catch {
+        /* Non-numeric labels remain neutral. */
+      }
+    }
     return (
-      <article className={`stat ${tone}`}>
+      <article
+        className={`stat ${tone} ${valueColor === "negative" ? "negative-stat" : ""}`}
+      >
         <span>{title}</span>
-        <strong>{value}</strong>
+        <strong className={valueColor}>{value}</strong>
         {foot && <small>{foot}</small>}
       </article>
     );
@@ -724,7 +752,23 @@ function App() {
                             ""}
                         </small>
                       </td>
-                      <td className={r.kind === "income" ? "positive" : ""}>
+                      <td
+                        className={
+                          r.kind === "expense" ||
+                          [
+                            "debts",
+                            "payment_plans",
+                            "moving_expenses",
+                            "savings_withdrawals",
+                          ].includes(table) ||
+                          Number(r.balance ?? r.amount ?? 0) < 0
+                            ? "negative"
+                            : r.kind === "income" ||
+                                Number(r.balance ?? r.amount ?? 0) > 0
+                              ? "positive"
+                              : ""
+                        }
+                      >
                         {money(r.amount ?? r.balance ?? r.gross ?? 0)}
                         {r.gross !== undefined && (
                           <small>
@@ -892,12 +936,6 @@ function App() {
         <ResponsiveContainer width="100%" height={250}>
           {area ? (
             <AreaChart data={rows}>
-              <defs>
-                <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#25866c" stopOpacity={0.22} />
-                  <stop offset="100%" stopColor="#25866c" stopOpacity={0} />
-                </linearGradient>
-              </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
@@ -920,8 +958,17 @@ function App() {
                 <Area
                   key={k}
                   dataKey={k}
-                  stroke={i ? "#e3a258" : "#25866c"}
-                  fill="url(#fill)"
+                  stroke={
+                    i || /despesas|devedor/i.test(k)
+                      ? "var(--negative)"
+                      : "var(--green)"
+                  }
+                  fill={
+                    i || /despesas|devedor/i.test(k)
+                      ? "var(--negative)"
+                      : "var(--green)"
+                  }
+                  fillOpacity={0.12}
                   strokeWidth={2}
                 />
               ))}
@@ -937,7 +984,11 @@ function App() {
                 <Bar
                   key={k}
                   dataKey={k}
-                  fill={i ? "#e3a258" : "#25866c"}
+                  fill={
+                    i || /despesas|devedor/i.test(k)
+                      ? "var(--negative)"
+                      : "var(--green)"
+                  }
                   radius={[4, 4, 0, 0]}
                 />
               ))}
@@ -1249,43 +1300,10 @@ function App() {
             <>
               {page === "overview" && (
                 <>
-                  <div className="stats four">
-                    <Stat
-                      title="Saldo bancário sincronizado"
-                      value={money(
-                        sum(
-                          accounts.filter((a) => a.source === "pluggy"),
-                          "balance",
-                        ),
-                      )}
-                      foot="BRL • sem limites de crédito"
-                    />
-                    <Stat
-                      title="Saldo informado manualmente"
-                      value={money(
-                        sum(
-                          accounts.filter((a) => a.source === "manual"),
-                          "balance",
-                        ),
-                      )}
-                      foot="Separado do saldo sincronizado"
-                    />
-                    <Stat
-                      title="Dívidas em aberto"
-                      value={money(totalDebt)}
-                      foot={`${overdue.length} pendências vencidas`}
-                      tone={overdue.length ? "warn" : ""}
-                    />
-                    <Stat
-                      title="Resultado do período"
-                      value={money(income - expenses - paid)}
-                      foot="Receita líquida − despesas − pagamentos"
-                      tone="green"
-                    />
-                  </div>
                   <BalanceArc
                     accounts={accounts as { source: string; balance: number }[]}
                     debt={totalDebt}
+                    result={income - expenses - paid}
                     unavailable={!!error || loading}
                   />
                   <div className="two-col">
@@ -1304,7 +1322,11 @@ function App() {
                         </div>
                         <div>
                           <small>Despesas e pagamentos</small>
-                          <strong>{money(expenses + paid)}</strong>
+                          <strong
+                            className={expenses + paid > 0 ? "negative" : ""}
+                          >
+                            {money(expenses + paid)}
+                          </strong>
                         </div>
                       </div>
                       <Chart rows={flowChart} keys={["Receitas", "Despesas"]} />
@@ -1811,7 +1833,17 @@ function App() {
                               Se continuar neste ritmo, você chegará à data da
                               mudança com
                             </h3>
-                            <strong>{money(calc!.projected)}</strong>
+                            <strong
+                              className={
+                                calc!.projected < 0
+                                  ? "negative"
+                                  : calc!.projected > 0
+                                    ? "positive"
+                                    : ""
+                              }
+                            >
+                              {money(calc!.projected)}
+                            </strong>
                             <p>
                               Lucro médio {money(meanNet)} × {calc!.workdays}{" "}
                               dias de trabalho, menos {money(obligations)} de
@@ -2811,6 +2843,62 @@ function App() {
           </footer>
         </div>
       </main>
+      {paymentModal && (
+        <div className="modal-backdrop">
+          <section
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Registrar pagamento"
+          >
+            <div className="section-title">
+              <h2>Registrar pagamento</h2>
+              <button
+                className="icon"
+                aria-label="Fechar"
+                onClick={() => setPaymentModal(null)}
+              >
+                <X />
+              </button>
+            </div>
+            <p>
+              {paymentModal.debt.name} • restante{" "}
+              {money(paymentModal.debt.amount - paymentModal.debt.paid)}
+            </p>
+            <form onSubmit={submitPayment}>
+              <label>
+                Valor do pagamento (R$)
+                <MoneyInput
+                  autoFocus
+                  name="amount"
+                  required
+                  defaultValue={String(
+                    (paymentModal.plan?.amount ||
+                      paymentModal.debt.amount - paymentModal.debt.paid) / 100,
+                  )}
+                />
+              </label>
+              {error && (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              )}
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="small"
+                  onClick={() => setPaymentModal(null)}
+                >
+                  Cancelar
+                </button>
+                <button className="primary" disabled={busy}>
+                  Confirmar pagamento
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
       {modal && (
         <div className="modal-backdrop">
           <section
@@ -2873,13 +2961,20 @@ function App() {
                                   </option>
                                 ))}
                         </select>
+                      ) : f.type === "money" ? (
+                        <MoneyInput
+                          name={f.key}
+                          required={f.required}
+                          defaultValue={value}
+                          autoFocus={f === forms[modal.table][0]}
+                        />
                       ) : (
                         <input
                           autoFocus={f === forms[modal.table][0]}
                           name={f.key}
                           required={f.required}
-                          type={f.type === "money" ? "text" : f.type || "text"}
-                          inputMode={f.type === "money" ? "decimal" : undefined}
+                          type={f.type || "text"}
+
                           defaultValue={value}
                           step={f.type === "number" ? "any" : undefined}
                           maxLength={f.type === "text" ? 200 : undefined}

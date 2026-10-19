@@ -7,10 +7,12 @@ export function BalanceArc({
   accounts,
   debt,
   unavailable = false,
+  result = 0,
 }: {
   accounts: Account[];
   debt: number;
   unavailable?: boolean;
+  result?: number;
 }) {
   const [selected, setSelected] = useState("");
   const sources = ["pluggy", "manual"].filter((source) =>
@@ -76,7 +78,11 @@ export function BalanceArc({
               cy="160"
               r="126"
               fill="none"
-              stroke={known && debt > 0 ? "#e2c6a7" : "var(--border)"}
+              stroke={
+                known && (debt > 0 || balance < 0)
+                  ? "var(--negative)"
+                  : "var(--border)"
+              }
               strokeWidth="20"
               strokeLinecap="round"
             />
@@ -90,7 +96,7 @@ export function BalanceArc({
               fill="none"
               stroke="var(--green)"
               strokeWidth="20"
-              strokeLinecap={progress > 0 ? "round" : "butt"}
+              strokeLinecap="butt"
               strokeDasharray={`${progress} 100`}
             />
             <text
@@ -99,7 +105,9 @@ export function BalanceArc({
               textAnchor="middle"
               className="balance-percent"
             >
-              {known ? `${Math.round(coverage)}%` : "—"}
+              {known
+                ? `${coverage.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`
+                : "—"}
             </text>
             <text
               x="160"
@@ -118,29 +126,54 @@ export function BalanceArc({
                 <i className="balance-dot cash" />
                 Saldo {source === "pluggy" ? "sincronizado" : "manual"}
               </span>
-              <strong>{known ? money(balance) : "Não informado"}</strong>
+              <strong
+                className={known ? (balance < 0 ? "negative" : "positive") : ""}
+              >
+                {known ? money(balance) : "Não informado"}
+              </strong>
             </div>
             <div>
               <span>
                 <i className="balance-dot debt" />
                 Dívidas em aberto
               </span>
-              <strong>{unavailable ? "Indisponível" : money(debt)}</strong>
+              <strong className={debt > 0 ? "negative" : ""}>
+                {unavailable ? "Indisponível" : money(debt)}
+              </strong>
             </div>
-          </div>
-          <div
-            className={`balance-result ${known && difference < 0 ? "shortfall" : ""}`}
-          >
-            <span>{label}</span>
-            <strong>{known ? money(Math.abs(difference)) : "—"}</strong>
+            <div>
+              <span>Resultado do período</span>
+              <strong
+                className={
+                  result < 0 ? "negative" : result > 0 ? "positive" : ""
+                }
+              >
+                {unavailable ? "Indisponível" : money(result)}
+              </strong>
+            </div>
+            <div className="balance-difference">
+              <span>{label}</span>
+              <strong
+                className={
+                  known
+                    ? difference < 0
+                      ? "negative"
+                      : difference > 0
+                        ? "positive"
+                        : ""
+                    : ""
+                }
+              >
+                {known ? money(difference) : "—"}
+              </strong>
+            </div>
           </div>
           <p className="muted">
             {known && debt > 0
               ? `${money(Math.min(Math.max(0, balance), debt))} de ${money(debt)} cobertos pelo saldo selecionado. `
               : ""}
-            Comparação atual, independente do período selecionado. O Cofre já
-            faz parte das contas; projeções e receitas futuras não entram aqui.
-            Saldos manuais e sincronizados são comparados separadamente.
+            Saldo e dívidas atuais; resultado conforme o período selecionado.
+            Cofre e projeções não são somados ao saldo.
           </p>
           {known && debt === 0 && (
             <p className="muted">
