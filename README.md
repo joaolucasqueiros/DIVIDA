@@ -72,6 +72,8 @@ A conexão usa state criptografado de 10 minutos vinculado ao cookie HttpOnly/Sa
 
 ### Publicação no Cloudflare
 
+O arquivo `wrangler.jsonc` usa `keep_vars: true` para preservar variáveis de execução cadastradas no painel durante os deploys, inclusive quando o comando é `npx wrangler deploy`. Segredos do Worker são mantidos pelo Cloudflare. Variáveis `VITE_` precisam continuar na configuração de **compilação**, pois são incorporadas ao frontend no build; essa opção não substitui a configuração de build. Valores removidos em deploys anteriores precisam ser cadastrados novamente uma vez. Nunca adicione chaves secretas ao repositório.
+
 1. Configure o Supabase e autorizações de produção primeiro.
 2. Configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no ambiente do build, então `npm ci && npm run build`.
 3. Autentique o Wrangler pela conta Cloudflare. Registre `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `APP_URL` com `npx wrangler secret put NOME`; registre os demais segredos somente para recursos que usar.

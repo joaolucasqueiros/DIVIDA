@@ -1,5 +1,7 @@
 {
   "name": "clareza",
+  // Preserve runtime variables managed through the Cloudflare dashboard.
+  "keep_vars": true,
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-18",
   "assets": {
